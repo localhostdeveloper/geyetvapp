@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../services/supabase_service.dart';
-import 'video_player_screen.dart'; // Ensure this import exists
+import 'video_player_screen.dart';
 
 class TvSectionScreen extends StatefulWidget {
   const TvSectionScreen({super.key});
@@ -31,6 +31,7 @@ class _TvSectionScreenState extends State<TvSectionScreen> {
           _buildFilterChips(),
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
+              // Category ID for 'TV' from your Supabase logs
               future: _supabaseService.getContentByCategory('1d401013-085c-4a29-aa37-b433e7c96879'),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -52,7 +53,8 @@ class _TvSectionScreenState extends State<TvSectionScreen> {
                   padding: const EdgeInsets.all(16),
                   itemCount: channels.length,
                   itemBuilder: (context, index) {
-                    return _buildChannelTile(channels[index]);
+                    // Pass individual channel AND the full list to the tile
+                    return _buildChannelTile(channels[index], channels);
                   },
                 );
               },
@@ -77,7 +79,10 @@ class _TvSectionScreenState extends State<TvSectionScreen> {
             child: Chip(
               backgroundColor: index == 0 ? AppColors.primaryRed : AppColors.surfaceDark,
               side: BorderSide.none,
-              label: Text(filters[index], style: const TextStyle(color: Colors.white, fontSize: 12)),
+              label: Text(
+                filters[index], 
+                style: const TextStyle(color: Colors.white, fontSize: 12)
+              ),
             ),
           );
         },
@@ -85,15 +90,16 @@ class _TvSectionScreenState extends State<TvSectionScreen> {
     );
   }
 
-  Widget _buildChannelTile(Map<String, dynamic> channel) {
+  Widget _buildChannelTile(Map<String, dynamic> channel, List<Map<String, dynamic>> allChannels) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => VideoPlayerScreen(
-              streamUrl: channel['stream_url'],
-              title: channel['title'],
+              streamUrl: channel['stream_url'] ?? '',
+              title: channel['title'] ?? 'Unknown',
+              allChannels: allChannels, // Passing the full list for the player's channel tab
             ),
           ),
         );
@@ -108,6 +114,7 @@ class _TvSectionScreenState extends State<TvSectionScreen> {
         ),
         child: Row(
           children: [
+            // CHANNEL LOGO
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: channel['logo_url'] != null 
@@ -117,7 +124,7 @@ class _TvSectionScreenState extends State<TvSectionScreen> {
                     height: 60,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => 
-                      const Icon(Icons.tv, color: Colors.white24),
+                      const Icon(Icons.tv, color: Colors.white24, size: 30),
                   )
                 : Container(
                     width: 60,
@@ -127,22 +134,32 @@ class _TvSectionScreenState extends State<TvSectionScreen> {
                   ),
             ),
             const SizedBox(width: 15),
+            
+            // CHANNEL INFO
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     channel['title'] ?? 'Unknown Channel',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      color: Colors.white, 
+                      fontWeight: FontWeight.bold, 
+                      fontSize: 16
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     channel['description'] ?? 'Live Stream',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: AppColors.textGrey, fontSize: 12),
                   ),
                 ],
               ),
             ),
+
+            // LIVE INDICATOR
             if (channel['is_live'] == true)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -152,7 +169,11 @@ class _TvSectionScreenState extends State<TvSectionScreen> {
                 ),
                 child: const Text(
                   "LIVE", 
-                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)
+                  style: TextStyle(
+                    color: Colors.white, 
+                    fontSize: 10, 
+                    fontWeight: FontWeight.bold
+                  )
                 ),
               ),
           ],

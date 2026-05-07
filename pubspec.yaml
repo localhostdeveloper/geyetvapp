@@ -42,6 +42,7 @@ dependencies:
   flutter_dotenv: ^6.0.1
   flutter_launcher_icons: ^0.14.1
   flick_video_player: ^0.9.0
+  chewie: ^1.14.0
 
 
 dev_dependencies:

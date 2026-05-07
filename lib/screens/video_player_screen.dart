@@ -1,79 +1,166 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flick_video_player/flick_video_player.dart';
+import 'package:chewie/chewie.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+
+import '../theme/app_colors.dart';
+import '../widgets/player_info_section.dart';
+import '../widgets/player_channels_list.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String streamUrl;
   final String title;
+  final List<Map<String, dynamic>> allChannels;
 
-  const VideoPlayerScreen({super.key, required this.streamUrl, required this.title});
+  const VideoPlayerScreen({
+    super.key,
+    required this.streamUrl,
+    required this.title,
+    required this.allChannels,
+  });
 
   @override
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late FlickManager flickManager;
+  late VideoPlayerController _videoController;
+  ChewieController? _chewieController;
 
   @override
   void initState() {
     super.initState();
-    WakelockPlus.enable(); // Keep screen on
-    
-    flickManager = FlickManager(
-      videoPlayerController: VideoPlayerController.networkUrl(
-        Uri.parse(widget.streamUrl),
+
+    _enableWakelock();
+    _initPlayer(widget.streamUrl);
+  }
+
+  Future<void> _enableWakelock() async {
+    await WakelockPlus.enable();
+  }
+
+  Future<void> _disableWakelock() async {
+    await WakelockPlus.disable();
+  }
+
+  Future<void> _initPlayer(String url) async {
+    _videoController = VideoPlayerController.networkUrl(
+      Uri.parse(url),
+    );
+
+    try {
+      await _videoController.initialize();
+
+      setState(() {
+        _chewieController = ChewieController(
+          videoPlayerController: _videoController,
+          autoPlay: true,
+          isLive: true,
+          aspectRatio: 16 / 9,
+          deviceOrientationsAfterFullScreen: [
+            DeviceOrientation.portraitUp,
+          ],
+          placeholder: const Center(
+            child: CircularProgressIndicator(
+              color: AppColors.primaryRed,
+            ),
+          ),
+        );
+      });
+    } catch (e) {
+      debugPrint("Player Init Error: $e");
+    }
+  }
+
+  void _switchChannel(Map<String, dynamic> channel) {
+    _videoController.dispose();
+    _chewieController?.dispose();
+
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, anim1, anim2) => VideoPlayerScreen(
+          streamUrl: channel['stream_url'],
+          title: channel['title'],
+          allChannels: widget.allChannels,
+        ),
+        transitionDuration: Duration.zero,
       ),
     );
   }
 
   @override
   void dispose() {
-    // 1. Disable WakeLock
-    WakelockPlus.disable();
-    
-    // 2. FORCE Portrait Mode on exit
+    _disableWakelock();
+
+    _videoController.dispose();
+    _chewieController?.dispose();
+
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
-    
-    // 3. Show System UI bars again
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    
-    flickManager.dispose();
+
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isPortrait =
+        MediaQuery.of(context).orientation == Orientation.portrait;
+
     return Scaffold(
-      backgroundColor: Colors.black,
-      // Using WillPopScope (or PopScope in newer Flutter) to catch the back button
-      body: PopScope(
-        onPopInvokedWithResult: (didPop, result) {
-          // This ensures that even if they use the hardware back button, 
-          // we force portrait mode.
-          SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-        },
-        child: FlickVideoPlayer(
-          flickManager: flickManager,
-          preferredDeviceOrientationFullscreen: const [
-            DeviceOrientation.landscapeLeft,
-            DeviceOrientation.landscapeRight,
-          ],
-          // This makes the player handle the UI overlay for you
-          systemUIOverlay: [], 
-          flickVideoWithControls: const FlickVideoWithControls(
-            controls: FlickPortraitControls(),
-            videoFit: BoxFit.contain,
+      backgroundColor: AppColors.backgroundBlack,
+      appBar: isPortrait
+          ? AppBar(
+              backgroundColor: Colors.black,
+              title: Text(widget.title),
+            )
+          : null,
+      body: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: _chewieController != null
+                ? Chewie(controller: _chewieController!)
+                : const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primaryRed,
+                    ),
+                  ),
           ),
-          flickVideoWithControlsFullscreen: const FlickVideoWithControls(
-            controls: FlickLandscapeControls(),
-            videoFit: BoxFit.contain,
-          ),
-        ),
+          if (isPortrait)
+            Expanded(
+              child: DefaultTabController(
+                length: 2,
+                child: Column(
+                  children: [
+                    const TabBar(
+                      indicatorColor: AppColors.primaryRed,
+                      tabs: [
+                        Tab(text: "EPG"),
+                        Tab(text: "CHANNELS"),
+                      ],
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          PlayerInfoSection(
+                            title: widget.title,
+                          ),
+                          PlayerChannelsList(
+                            allChannels: widget.allChannels,
+                            currentTitle: widget.title,
+                            onChannelSelect: _switchChannel,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
