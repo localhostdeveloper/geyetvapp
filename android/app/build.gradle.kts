@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "godseye_tv"
+    namespace = "godseye.tv"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -18,6 +18,8 @@ android {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
+
+ 
 
     defaultConfig {
         applicationId = "godseye.tv"
