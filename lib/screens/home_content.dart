@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'tv_section_screen.dart'; // Import the TV screen
+import 'radio_section_screen.dart';
 
 class HomeContent extends StatelessWidget {
   const HomeContent({super.key});
@@ -140,7 +141,7 @@ class HomeContent extends StatelessWidget {
       mainAxisSpacing: 15,
       children: [
         _categoryTile(context, "TV", Icons.tv, const TvSectionScreen()),
-        _categoryTile(context, "RADIO", Icons.radio, null),
+        _categoryTile(context, "RADIO", Icons.radio, const RadioSectionScreen()),
         _categoryTile(context, "WEBSITE", Icons.web, null),
         _categoryTile(context, "PODCAST", Icons.podcasts, null),
       ],
@@ -202,10 +203,3 @@ class HomeContent extends StatelessWidget {
 
 
 
-//  **What’s changed:**
-// 1.  **`InkWell` and `ElevatedButton`:** Your categories and the hero button are now interactive.
-// 2.  **Navigation Flow:** Tapping "TV" or "Watch Now" will take you to your `TvSectionScreen`.
-// 3.  **Placeholders:** Tapping Radio, Website, or Podcast will show a friendly "Coming Soon" snackbar so the app feels alive even where we haven't built the content yet.
-// 4.  **Icons to Buttons:** The header icons (Menu, Search, Notifications) are now wrapped in `IconButton` so they provide visual feedback when pressed.
-
-// **Test it out! Once you've confirmed that tapping "TV" opens your list, we should proceed to Screen 11: The Player Screen.**

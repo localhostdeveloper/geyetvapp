@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:chewie/chewie.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../theme/app_colors.dart';
 import '../widgets/player_channels_list.dart';
-import '../widgets/player_info_section.dart'; // This now holds our EPG List logic
+import '../widgets/player_info_section.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String streamUrl;
@@ -31,11 +32,29 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isLoading = true;
   bool _hasError = false;
 
+  static const _pipChannel = MethodChannel('godseye.tv/pip');
+  bool _isInPipMode = false;
+
   @override
   void initState() {
     super.initState();
-    _enableWakelock();
     _initPlayer(widget.streamUrl);
+    _listenForPipMode();
+  }
+
+  // =========================
+  // PIP LISTENER (Android only)
+  // =========================
+  void _listenForPipMode() {
+    _pipChannel.setMethodCallHandler((call) async {
+      if (call.method == 'pipModeChanged') {
+        if (mounted) {
+          setState(() {
+            _isInPipMode = call.arguments as bool;
+          });
+        }
+      }
+    });
   }
 
   // =========================
@@ -65,7 +84,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         isLive: true,
         allowFullScreen: true,
         allowMuting: true,
-        // Using 16/9 to help prevent the layout thrashing seen in logs
         aspectRatio: 16 / 9,
         materialProgressColors: ChewieProgressColors(
           playedColor: AppColors.primaryRed,
@@ -84,6 +102,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       );
 
       if (mounted) {
+        await _enableWakelock();
         setState(() {
           _isLoading = false;
           _hasError = false;
@@ -101,7 +120,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   // =========================
-  // SWITCH CHANNEL (Requirement #3 Logic)
+  // SWITCH CHANNEL
   // =========================
   void _switchChannel(Map<String, dynamic> channel) {
     _videoController.dispose();
@@ -112,11 +131,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       PageRouteBuilder(
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
-        pageBuilder: (context, animation, secondaryAnimation) => VideoPlayerScreen(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            VideoPlayerScreen(
           streamUrl: channel['stream_url'],
           title: channel['title'],
-          // Passing the new ID ensures the EPG tab refreshes for this channel
-          channelId: channel['id'].toString(), 
+          channelId: channel['id'].toString(),
           allChannels: widget.allChannels,
         ),
       ),
@@ -141,14 +160,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             // =====================
             // VIDEO PLAYER
             // =====================
-            Flexible(
-              flex: 0,
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.35,
+              ),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: AppColors.primaryRed))
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                            color: AppColors.primaryRed))
                     : _hasError
-                        ? const Center(child: Text('Failed to load stream', style: TextStyle(color: Colors.white)))
+                        ? const Center(
+                            child: Text('Failed to load stream',
+                                style: TextStyle(color: Colors.white)))
                         : Chewie(controller: _chewieController!),
               ),
             ),
@@ -156,43 +181,40 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             // =====================
             // TABS SECTION (EPG & CHANNELS)
             // =====================
-            Expanded(
-              child: DefaultTabController(
-                length: 2,
-                child: Column(
-                  children: [
-                    const TabBar(
-                      indicatorColor: AppColors.primaryRed,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.grey,
-                      tabs: [
-                        Tab(text: 'EPG'),
-                        Tab(text: 'CHANNELS'),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          // TAB 1: EPG (Requirement #1 & #3)
-                          // We pass channelId here so it fetches the schedule for the active video
-                          PlayerInfoSection(
-                            title: widget.title,
-                            channelId: widget.channelId,
-                          ),
-
-                          // TAB 2: CHANNELS
-                          PlayerChannelsList(
-                            allChannels: widget.allChannels,
-                            currentTitle: widget.title,
-                            onChannelSelect: _switchChannel,
-                          ),
+            if (!_isInPipMode)
+              Expanded(
+                child: DefaultTabController(
+                  length: 2,
+                  child: Column(
+                    children: [
+                      const TabBar(
+                        indicatorColor: AppColors.primaryRed,
+                        labelColor: Colors.white,
+                        unselectedLabelColor: Colors.grey,
+                        tabs: [
+                          Tab(text: 'EPG'),
+                          Tab(text: 'CHANNELS'),
                         ],
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            PlayerInfoSection(
+                              title: widget.title,
+                              channelId: widget.channelId,
+                            ),
+                            PlayerChannelsList(
+                              allChannels: widget.allChannels,
+                              currentTitle: widget.title,
+                              onChannelSelect: _switchChannel,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),

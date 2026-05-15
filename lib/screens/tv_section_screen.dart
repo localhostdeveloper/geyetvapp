@@ -99,7 +99,7 @@ class _TvSectionScreenState extends State<TvSectionScreen> {
             builder: (context) => VideoPlayerScreen(
               streamUrl: channel['stream_url'] ?? '',
               title: channel['title'] ?? 'Unknown',
-              allChannels: allChannels, channelId: '', // Passing the full list for the player's channel tab
+              channelId: channel['id'].toString(), allChannels: allChannels
             ),
           ),
         );
